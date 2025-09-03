@@ -112,7 +112,7 @@ async function getAiSql(userQuery, maxRetries = 3) {
             content: `Convert this to SQL: "${userQuery}"`,
           },
         ],
-        model: "llama3-70b-8192",
+        model: "llama-3.3-70b-versatile",
         temperature: 0,
         max_tokens: 1024,
       });
@@ -192,7 +192,7 @@ Provide a clear 1-2 sentence summary of these results.`;
             content: summaryPrompt,
           },
         ],
-        model: "llama3-8b-8192",
+        model: "llama-3.3-70b-versatile",
         temperature: 0.2,
         max_tokens: 200,
       });
