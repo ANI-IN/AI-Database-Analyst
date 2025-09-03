@@ -194,7 +194,7 @@ Provide a clear 1-2 sentence summary of these results.`;
         ],
         model: "llama-3.3-70b-versatile",
         temperature: 0.2,
-        max_tokens: 200,
+        max_tokens: 1000,
       });
 
       return (
