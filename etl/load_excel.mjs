@@ -4,11 +4,9 @@
  * Works with your sheet columns exactly as in the screenshot:
  * Topic Code | Type | Domain | Class | Instructor | Session Date | Average | No of Student Responses | No of Students Attended | % Rated
  *
- * - Parses Excel serial dates, strings like "January 4, 2025", and JS Date objects.
- * - For each row stores:
- * * session_ts_utc = 09:00 America/Los_Angeles converted to UTC
- * * pst_date, pst_year, pst_month, pst_quarter, pst_month_start
- * - Upserts dimension rows, and upserts fact_session on natural key.
+ * - FIXES IMPLEMENTED:
+ * 1. Standardizes 'domain' and 'type' dimension names to lowercase for consistency (e.g., "Data Science" -> "data science").
+ * 2. Cleans up verbose 'type' names (e.g., "India Management Live Class") to a canonical "Live Class".
  *
  * Usage:
  * DATABASE_URL=postgres://... node load_excel.mjs --file=../data/sessions.xlsx
@@ -154,10 +152,23 @@ async function main() {
 
   for (const r of rows) {
     const topic = t(pick(r, COLS.topic));
-    const type = t(pick(r, COLS.type));
-    const domain = t(pick(r, COLS.domain));
-    const clazz = t(pick(r, COLS.class));
-    const instr = t(pick(r, COLS.instructor));
+    
+    // --- DIMENSION FIXES START ---
+    
+    // 1. Standardize Domain to lowercase (Fix for "Data Science" vs "data science")
+    const domain = t(pick(r, COLS.domain)).toLowerCase();
+    
+    // 2. Standardize Type: Cleanup and lowercase (Fix for "India Management Live Class" -> "live class")
+    let type = t(pick(r, COLS.type));
+    if (type.toLowerCase().includes('live class')) {
+      type = 'Live Class'; // Use a clean canonical intermediate name
+    }
+    type = type.toLowerCase(); // Force to final canonical lowercase
+    
+    // --- DIMENSION FIXES END ---
+    
+    const clazz = t(pick(r, COLS.class)); // Class name remains as-is for canonical storage
+    const instr = t(pick(r, COLS.instructor)); // Instructor name remains as-is for canonical storage
 
     const dateRaw = pick(r, COLS.sessionDate);
     const average = num(pick(r, COLS.average));
@@ -176,7 +187,7 @@ async function main() {
       responses = Math.round(attended * (rated / 100)); // rated is 0..100
     }
 
-    // required
+    // required check (uses standardized 'domain' and 'type')
     if (!type || !domain || !clazz || !instr) {
       skipped++;
       continue;
@@ -189,7 +200,7 @@ async function main() {
       continue;
     }
 
-    // upsert dims
+    // upsert dims - all are loaded with their final canonical, clean names
     const di = await upsertDim(db, "dim_instructor", "instructor_name", instr);
     const dc = await upsertDim(db, "dim_class", "class_name", clazz);
     const dd = await upsertDim(db, "dim_domain", "domain_name", domain);
