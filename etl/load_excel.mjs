@@ -128,13 +128,13 @@ async function main() {
     console.error(`❌ file not found: ${file}`);
     process.exit(1);
   }
-  const DATABASE_URL = process.env.DATABASE_URL;
-  if (!DATABASE_URL) {
+  const NEON_DATABASE_URL = process.env.NEON_DATABASE_URL;
+  if (!NEON_DATABASE_URL) {
     console.error("❌ set DATABASE_URL in .env");
     process.exit(1);
   }
 
-  const db = new Client({ connectionString: DATABASE_URL });
+  const db = new Client({ connectionString: NEON_DATABASE_URL });
   await db.connect();
 
   const wb = xlsx.readFile(file, { cellDates: false });
