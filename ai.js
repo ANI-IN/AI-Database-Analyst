@@ -13,8 +13,7 @@ Query the view: v_sessions
 
 Schema:
 - session_id (BIGSERIAL, PK)
-- topic_code (TEXT)
-- type (TEXT): session format like 'live class', 'tpm class', 'machine learning class'
+- topic_code (TEXT): Contains session format/type info like 'Live Class', 'Test Review Session', 'Training Session'
 - domain (TEXT): track/program like 'backend', 'data science', 'tpm'
 - class (TEXT): class name
 - instructor (TEXT): instructor full name
@@ -105,7 +104,6 @@ FROM v_sessions
 WHERE LOWER(type) LIKE '%live class%'
    OR LOWER(type) LIKE '%assignment review%'
 GROUP BY type;
-
 
 
 Highest-rated instructor (weighted average) in a given domain:

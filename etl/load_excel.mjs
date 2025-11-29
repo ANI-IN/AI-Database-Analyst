@@ -1,12 +1,8 @@
 #!/usr/bin/env node
 /**
  * Excel → Neon Postgres loader for IK sessions (PST calendar)
- * Works with your sheet columns exactly as in the screenshot:
- * Topic Code | Type | Domain | Class | Instructor | Session Date | Average | No of Student Responses | No of Students Attended | % Rated
- *
- * - FIXES IMPLEMENTED:
- * 1. Standardizes 'domain' and 'type' dimension names to lowercase for consistency (e.g., "Data Science" -> "data science").
- * 2. Cleans up verbose 'type' names (e.g., "India Management Live Class") to a canonical "Live Class".
+ * - Removed "Type" column processing.
+ * - Standardizes 'domain' to lowercase.
  *
  * Usage:
  * DATABASE_URL=postgres://... node load_excel.mjs --file=../data/sessions.xlsx
@@ -16,19 +12,19 @@ import "dotenv/config";
 import fs from "fs";
 import xlsx from "xlsx";
 import dayjs from "dayjs";
-import utc from "dayjs/plugin/utc.js"; // Import UTC plugin
+import utc from "dayjs/plugin/utc.js";
 import { Client } from "pg";
 
-dayjs.extend(utc); // Use UTC plugin
+dayjs.extend(utc);
 
 const TZ = "America/Los_Angeles";
 
-// This object maps the database fields to possible column names in your Excel file.
+// Maps database fields to Excel column headers
 const COLS = {
   topic: ["Topic Code", "Topic code", "Topic", "Type Code"],
-  type: ["Type", "Session Type"],
+  // type: ["Type", "Session Type"], <-- REMOVED
   domain: ["Domain"],
-  class: ["Class"],
+  class: ["Class", "Live Class"], // Added "Live Class" to catch Column D
   instructor: ["Instructor", "Instructor Name"],
   sessionDate: ["Session Date", "Date"],
   average: ["Average", "Overall Average", "Overall Avg", "Avg", "Rating"],
@@ -72,18 +68,15 @@ function pct(v) {
 function excelSerialToDate(n) {
   const o = xlsx.SSF.parse_date_code(n);
   if (!o) return null;
-  // Create a Date object in UTC to prevent local timezone from shifting the date.
   return new Date(Date.UTC(o.y, o.m - 1, o.d));
 }
 function normalizePstDate(raw) {
   if (raw == null) return null;
   if (raw instanceof Date) {
-    // Format the date as UTC to prevent timezone shifts
     return dayjs.utc(raw).format("YYYY-MM-DD");
   }
   if (typeof raw === "number") {
     const d = excelSerialToDate(raw);
-    // Format the date as UTC
     return d ? dayjs.utc(d).format("YYYY-MM-DD") : null;
   }
   const s = t(raw);
@@ -109,8 +102,8 @@ const qOf = (m) => Math.floor((m - 1) / 3) + 1;
 async function upsertDim(db, table, col, val) {
   const { rows } = await db.query(
     `INSERT INTO ${table}(${col}) VALUES ($1)
-     ON CONFLICT (${col}) DO UPDATE SET ${col}=EXCLUDED.${col}
-     RETURNING *`,
+      ON CONFLICT (${col}) DO UPDATE SET ${col}=EXCLUDED.${col}
+      RETURNING *`,
     [val]
   );
   return rows[0];
@@ -151,28 +144,19 @@ async function main() {
     badDate = 0;
 
   for (const r of rows) {
-    const topic = t(pick(r, COLS.topic));
+    const topic = t(pick(r, COLS.topic)); // Column A
     
-    // --- DIMENSION FIXES START ---
-    
-    // 1. Standardize Domain to lowercase (Fix for "Data Science" vs "data science")
+    // 1. Standardize Domain to lowercase
     const domain = t(pick(r, COLS.domain)).toLowerCase();
     
-    // 2. Standardize Type: Cleanup and lowercase (Fix for "India Management Live Class" -> "live class")
-    let type = t(pick(r, COLS.type));
-    if (type.toLowerCase().includes('live class')) {
-      type = 'Live Class'; // Use a clean canonical intermediate name
-    }
-    type = type.toLowerCase(); // Force to final canonical lowercase
+    // Type processing REMOVED
     
-    // --- DIMENSION FIXES END ---
-    
-    const clazz = t(pick(r, COLS.class)); // Class name remains as-is for canonical storage
-    const instr = t(pick(r, COLS.instructor)); // Instructor name remains as-is for canonical storage
+    const clazz = t(pick(r, COLS.class)); 
+    const instr = t(pick(r, COLS.instructor));
 
     const dateRaw = pick(r, COLS.sessionDate);
     const average = num(pick(r, COLS.average));
-    const responses = num(pick(r, COLS.responses));
+    let responses = num(pick(r, COLS.responses));
     const attended = num(pick(r, COLS.attended));
 
     let rated = pct(pick(r, COLS.ratedPct));
@@ -184,11 +168,11 @@ async function main() {
       attended != null &&
       rated != null
     ) {
-      responses = Math.round(attended * (rated / 100)); // rated is 0..100
+      responses = Math.round(attended * (rated / 100)); 
     }
 
-    // required check (uses standardized 'domain' and 'type')
-    if (!type || !domain || !clazz || !instr) {
+    // required check (Removed !type)
+    if (!domain || !clazz || !instr) {
       skipped++;
       continue;
     }
@@ -200,11 +184,10 @@ async function main() {
       continue;
     }
 
-    // upsert dims - all are loaded with their final canonical, clean names
+    // upsert dims (dim_type removed)
     const di = await upsertDim(db, "dim_instructor", "instructor_name", instr);
     const dc = await upsertDim(db, "dim_class", "class_name", clazz);
     const dd = await upsertDim(db, "dim_domain", "domain_name", domain);
-    const dt = await upsertDim(db, "dim_type", "type_name", type);
 
     // calendar fields
     const [y, m, d] = pstDate.split("-").map(Number);
@@ -212,42 +195,34 @@ async function main() {
     const monthStart = `${y}-${String(m).padStart(2, "0")}-01`;
 
     // insert/upsert fact
+    // Removed type_id from columns and values
     const sql = `
       INSERT INTO fact_session
-        (topic_code, type_id, domain_id, class_id, instructor_id,
+        (topic_code, domain_id, class_id, instructor_id,
          session_ts_utc, pst_date, pst_year, pst_month, pst_quarter, pst_month_start,
          average, responses, students_attended, rated_pct)
       VALUES
-        ($1,$2,$3,$4,$5,
-         make_timestamptz($6,$7,$8, 9,0,0, '${TZ}'),
-         $9,$10,$11,$12,$13,
-         $14,$15,$16,$17)
-      ON CONFLICT (topic_code, type_id, domain_id, class_id, instructor_id, pst_date)
+        ($1,$2,$3,$4,
+         make_timestamptz($5,$6,$7, 9,0,0, '${TZ}'),
+         $8,$9,$10,$11,$12,
+         $13,$14,$15,$16)
+      ON CONFLICT (topic_code, domain_id, class_id, instructor_id, pst_date)
       DO UPDATE SET
-         average = EXCLUDED.average,
-         responses   = EXCLUDED.responses,
-         students_attended = EXCLUDED.students_attended,
-         rated_pct   = EXCLUDED.rated_pct
+          average = EXCLUDED.average,
+          responses    = EXCLUDED.responses,
+          students_attended = EXCLUDED.students_attended,
+          rated_pct    = EXCLUDED.rated_pct
       RETURNING xmax = 0 AS inserted_flag`;
     const params = [
       topic || null,
-      dt.type_id,
       dd.domain_id,
       dc.class_id,
       di.instructor_id,
-      y,
-      m,
-      d,
-      pstDate,
-      y,
-      m,
-      q,
-      monthStart,
-      average,
-      responses,
-      attended,
-      rated,
+      y, m, d, // Time
+      pstDate, y, m, q, monthStart, // Date
+      average, responses, attended, rated, // Metrics
     ];
+    
     const { rows: res } = await db.query(sql, params);
     if (res?.[0]?.inserted_flag) inserted++;
     else updated++;
