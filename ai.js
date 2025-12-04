@@ -296,9 +296,9 @@ Provide a clear 1-2 sentence summary of these results.`;
       content: summaryPrompt,
      },
     ],
-    model: "llama-3.3-70b-versatile",
-    temperature: 0.2,
-    max_tokens: 1000,
+    model: "openai/gpt-oss-120b",
+    temperature: 0,
+    max_tokens: 1024,
    });
 
    return (
