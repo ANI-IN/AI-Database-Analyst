@@ -216,7 +216,7 @@ async function getAiSql(userQuery, maxRetries = 3) {
       content: `Convert this to SQL: "${userQuery}"`,
      },
     ],
-    model: "llama-3.3-70b-versatile",
+    model: "openai/gpt-oss-120b",
     temperature: 0,
     max_tokens: 1024,
    });
