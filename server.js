@@ -2,6 +2,7 @@
 const express = require("express");
 const cors = require("cors");
 const Fuse = require("fuse.js"); 
+const path = require("path"); // <--- ADD THIS IMPORT
 const { Pool } = require("pg");
 require("dotenv").config();
 
@@ -14,6 +15,18 @@ const pool = new Pool({ connectionString: process.env.NEON_DATABASE_URL });
 app.use(cors());
 app.use(express.json());
 app.use(express.static("public"));
+
+app.use(express.static(path.join(__dirname, "public")));
+
+// 2. Explicitly serve index.html for the root route "/"
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+// 3. Explicitly serve instructions.html (just to be safe)
+app.get("/instructions", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "instructions.html"));
+});
 
 // ==========================================
 // 1. MULTI-ENTITY CACHING
