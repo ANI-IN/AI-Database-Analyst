@@ -3,7 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const Fuse = require("fuse.js"); 
 const { Pool } = require("pg");
-const path = require("path"); // <--- CRITICAL IMPORT
+const path = require("path"); 
 require("dotenv").config();
 
 const { getAiSql, getAiSummary, extractEntities } = require("./ai");
@@ -15,25 +15,14 @@ const pool = new Pool({ connectionString: process.env.NEON_DATABASE_URL });
 app.use(cors());
 app.use(express.json());
 
-// ==========================================
-// 0. STATIC FILE SERVING (THE FIX)
-// ==========================================
-
-// 1. Tell Express where the 'public' folder is relative to the script
+// 0. STATIC FILE SERVING
 app.use(express.static(path.join(__dirname, "public")));
 
-// 2. Explicitly serve index.html for the root route "/"
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-// 3. Explicitly serve instructions.html
 app.get("/instructions", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "instructions.html"));
-});
-
-// Make sure .html extension also works if typed manually
-app.get("/instructions.html", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "instructions.html"));
 });
 
@@ -47,9 +36,13 @@ const caches = {
   topics: null
 };
 
-async function initAllCaches() {
+// CRITICAL FIX: Make this robust for Serverless
+async function ensureCachesLoaded() {
+  // If we already have data, skip reloading
+  if (caches.instructors) return;
+
   try {
-    console.log("[Init] Loading dimension caches...");
+    console.log("[Cache] Starting Lazy Load...");
 
     // Instructors
     const resInstr = await pool.query("SELECT first_name, last_name, full_name FROM dim_instructor");
@@ -57,7 +50,7 @@ async function initAllCaches() {
       includeScore: true,
       threshold: 0.4,
       keys: [
-        { name: "first_name", weight: 2.0 }, // First Name Match Priority
+        { name: "first_name", weight: 2.0 },
         { name: "last_name", weight: 2.0 },
         { name: "full_name", weight: 1.0 }
       ]
@@ -75,9 +68,9 @@ async function initAllCaches() {
     const resTopic = await pool.query("SELECT topic_code FROM dim_topic");
     caches.topics = new Fuse(resTopic.rows, { includeScore: true, threshold: 0.4, keys: ["topic_code"] });
 
-    console.log(`[Init] Ready. Loaded ${resInstr.rows.length} Instructors.`);
+    console.log(`[Cache] Loaded ${resInstr.rows.length} Instructors.`);
   } catch (e) {
-    console.error("[Init] Error:", e);
+    console.error("[Cache] Load Error:", e);
   }
 }
 
@@ -87,11 +80,10 @@ async function initAllCaches() {
 function resolveTerm(term) {
   let allMatches = [];
 
-  // 1. Gather matches from ALL categories
+  // Helper to collect matches
   const collect = (fuse, type, field) => {
     if (!fuse) return;
     const results = fuse.search(term);
-    // Keep raw results to sort later
     results.forEach(r => {
       allMatches.push({
         category: type,
@@ -106,15 +98,11 @@ function resolveTerm(term) {
   collect(caches.classes, "class", "class_name");
   collect(caches.topics, "topic", "topic_code");
 
-  // 2. Filter garbage (Score > 0.4)
   allMatches = allMatches.filter(m => m.score < 0.4);
-
-  // 3. Sort by relevance (lower score is better)
   allMatches.sort((a, b) => a.score - b.score);
 
   if (allMatches.length === 0) return [];
 
-  // 4. AMBIGUITY HANDLING
   const bestScore = allMatches[0].score;
   const threshold = bestScore + 0.05; 
   
@@ -130,6 +118,11 @@ app.post("/api/query", async (req, res) => {
   if (!userQuery) return res.status(400).json({ error: "Query required" });
 
   try {
+    // --- CRITICAL FIX START ---
+    // Ensure caches are loaded before we try to resolve anything
+    await ensureCachesLoaded();
+    // --- CRITICAL FIX END ---
+
     // Step 1: Extract entities
     const entities = await extractEntities(userQuery);
     
@@ -140,7 +133,6 @@ app.post("/api/query", async (req, res) => {
       const candidates = resolveTerm(term);
       
       if (candidates.length === 1) {
-        // Precise Match
         const match = candidates[0];
         console.log(`[Match] "${term}" -> ${match.value} (${match.category})`);
         
@@ -154,7 +146,6 @@ app.post("/api/query", async (req, res) => {
           contextMessages.push(`User means Topic '${match.value}'. Filter by dt.topic_code = '${match.value}'`);
 
       } else if (candidates.length > 1) {
-        // Ambiguous Match
         console.log(`[Ambiguity] "${term}" matched ${candidates.length} items.`);
         const names = candidates.map(c => `'${c.value}'`).join(", ");
         contextMessages.push(
@@ -164,17 +155,14 @@ app.post("/api/query", async (req, res) => {
       }
     }
 
-    // Step 3: Build Augmented Query
     const contextString = contextMessages.length > 0 
       ? "\n\n(SYSTEM CONTEXT:\n" + contextMessages.join("\n") + "\n)" 
       : "";
     
     const finalPrompt = userQuery + contextString;
 
-    // Step 4: Generate SQL
     const sqlQuery = await getAiSql(finalPrompt);
     
-    // Step 5: Execute & Summarize
     const client = await pool.connect();
     const { rows } = await client.query(sqlQuery);
     client.release();
@@ -192,7 +180,6 @@ app.post("/api/query", async (req, res) => {
 // ==========================================
 // 4. METADATA API ENDPOINTS
 // ==========================================
-
 app.get("/api/instructors", async (req, res) => {
   try {
     const { rows } = await pool.query("SELECT full_name FROM dim_instructor ORDER BY full_name ASC");
@@ -222,9 +209,16 @@ app.get("/api/topics", async (req, res) => {
 });
 
 // ==========================================
-// 5. START SERVER
+// 5. START SERVER (Still kept for local dev)
 // ==========================================
-app.listen(PORT, async () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-  await initAllCaches();
-});
+// Note: We don't rely on initAllCaches here anymore for production, 
+// but it doesn't hurt to keep it for local testing.
+if (require.main === module) {
+    app.listen(PORT, async () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+      // Pre-load locally, but rely on lazy-load in production
+      await ensureCachesLoaded(); 
+    });
+}
+
+module.exports = app;
