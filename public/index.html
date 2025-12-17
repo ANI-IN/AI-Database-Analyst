@@ -1,4 +1,3 @@
-<!-- public/index.html -->
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -10,255 +9,94 @@
       rel="stylesheet"
     />
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-      body {
-        font-family: "Inter", sans-serif;
-      }
+      body { font-family: "Inter", sans-serif; }
       .loader {
         border: 4px solid #f3f3f3;
-        border-top: 4px solid #3498db;
+        border-top: 4px solid #3b82f6;
         border-radius: 50%;
         width: 40px;
         height: 40px;
         animation: spin 1s linear infinite;
       }
-      @keyframes spin {
-        0% {
-          transform: rotate(0deg);
-        }
-        100% {
-          transform: rotate(360deg);
-        }
-      }
-
-      /* Responsive logo styles */
-      .logo-img {
-        height: auto;
-        max-height: 40px;
-        width: auto;
-        max-width: 120px;
-      }
-
-      @media (max-width: 640px) {
-        .logo-img {
-          max-width: 80px;
-          max-height: 30px;
-        }
-      }
-
-      @media (max-width: 480px) {
-        .logo-img {
-          max-width: 60px;
-          max-height: 25px;
-        }
-      }
-
-      /* Button hover effects and styling */
-      .ask-ai-btn {
-        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-        box-shadow: 0 4px 14px 0 rgba(59, 130, 246, 0.3);
-        transform: translateY(0);
-        transition: all 0.2s ease-in-out;
-        width: 48px;
-        height: 48px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-      }
-
-      .ask-ai-btn:hover {
-        background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
-        box-shadow: 0 6px 20px 0 rgba(59, 130, 246, 0.4);
-        transform: translateY(-2px);
-      }
-
-      .ask-ai-btn:active {
-        transform: translateY(0);
-        box-shadow: 0 2px 8px 0 rgba(59, 130, 246, 0.3);
-      }
-
-      .ask-ai-btn:disabled {
-        background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%);
-        box-shadow: none;
-        transform: translateY(0);
-        cursor: not-allowed;
-      }
-
-      /* Input field enhancements */
-      .query-input {
-        border: 2px solid #e5e7eb;
-        transition: all 0.2s ease-in-out;
-      }
-
-      .query-input:focus {
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-      }
-
-      /* Arrow and spinner animations */
-      .arrow-icon {
-        transition: transform 0.2s ease-in-out;
-        width: 20px;
-        height: 20px;
-      }
-
-      .ask-ai-btn:hover .arrow-icon {
-        transform: translateX(2px);
-      }
-
-      .spinner-icon {
-        width: 20px;
-        height: 20px;
-        animation: spin 1s linear infinite;
-      }
-
-      @keyframes spin {
-        from {
-          transform: rotate(0deg);
-        }
-        to {
-          transform: rotate(360deg);
-        }
-      }
+      @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
   </head>
   <body class="bg-gray-50 text-gray-800">
-    <!-- Header -->
+    
     <header class="bg-white shadow-sm sticky top-0 z-10">
-      <div
-        class="container mx-auto max-w-6xl px-4 py-3 flex justify-between items-center"
-      >
-        <div class="flex items-center justify-start">
-          <img src="logo.png" alt="Logo" class="logo-img" />
-          <h1 class="text-xl font-bold text-gray-900 hidden sm:block ml-3"></h1>
+      <div class="container mx-auto max-w-7xl px-4 py-3 flex justify-between items-center">
+        <div class="flex items-center">
+          <img src="logo.png" alt="Interview Kickstart" class="h-8 md:h-10 w-auto" />
         </div>
-        <a
-          href="/instructions.html"
-          class="text-blue-600 font-semibold hover:text-blue-800 transition text-sm sm:text-base"
-          >Instructions</a
-        >
+        <a href="/instructions" class="text-gray-600 hover:text-blue-600 font-semibold text-sm md:text-base transition">
+          Instructions
+        </a>
       </div>
     </header>
 
-    <div class="container mx-auto p-4 md:p-8 max-w-6xl">
-      <header class="text-center mb-12">
-        <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900">
-          AI Database Analyst
-        </h1>
-        <p class="text-lg sm:text-xl text-gray-600 mt-4">
-          Ask questions about your session data in plain English.
-        </p>
+    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+      
+      <header class="text-center mb-10">
+        <h1 class="text-3xl md:text-4xl font-bold text-gray-900">AI Database Analyst</h1>
+        <p class="text-gray-600 mt-2 text-sm md:text-base">Ask questions about your session data.</p>
       </header>
+
       <main>
-        <!-- Query Input Section -->
-        <div class="bg-white p-4 sm:p-6 rounded-xl shadow-md mb-8">
+        <div class="bg-white p-4 md:p-6 rounded-xl shadow-md mb-8">
           <form id="query-form">
-            <label
-              for="query-input"
-              class="block text-sm font-medium text-gray-700 mb-3"
-              >Your Question:</label
-            >
-            <div class="flex flex-col sm:flex-row gap-4">
-              <input
-                type="text"
-                id="query-input"
-                class="query-input flex-grow w-full px-4 py-3 rounded-lg focus:outline-none text-sm sm:text-base placeholder-gray-400"
-                placeholder="e.g., 'Who is the most consistent instructor in Q2 2025?'"
-              />
-              <button
-                type="submit"
-                id="submit-btn"
-                class="ask-ai-btn text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                title="Send query"
-              >
-                <svg
-                  id="arrow-icon"
-                  class="arrow-icon"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M13 7l5 5m0 0l-5 5m5-5H6"
-                  ></path>
-                </svg>
-                <svg
-                  id="spinner-icon"
-                  class="spinner-icon hidden"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                  ></path>
-                </svg>
+            <label for="query-input" class="block text-sm font-medium text-gray-700 mb-2">Your Question:</label>
+            <div class="flex gap-3 md:gap-4">
+              <input type="text" id="query-input" class="flex-grow px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm md:text-base" placeholder="e.g., 'Trend of average ratings in 2024'">
+              <button type="submit" id="submit-btn" class="bg-blue-600 text-white px-5 md:px-6 py-3 rounded-lg hover:bg-blue-700 transition font-medium disabled:bg-gray-400">
+                <svg id="arrow-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                <svg id="spinner-icon" class="w-5 h-5 hidden animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
               </button>
             </div>
           </form>
         </div>
 
-        <!-- Results Section -->
-        <div id="results-container" class="space-y-8">
-          <!-- Loader will be shown here -->
-          <div
-            id="loader-container"
-            class="hidden justify-center items-center py-10"
-          >
+        <div id="results-container" class="space-y-6">
+          
+          <div id="loader-container" class="hidden justify-center py-10">
             <div class="loader"></div>
           </div>
 
-          <!-- Error message will be shown here -->
-          <div
-            id="error-container"
-            class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg"
-            role="alert"
-          >
-            <strong class="font-bold">Error:</strong>
-            <span class="block sm:inline" id="error-message"></span>
+          <div id="error-container" class="hidden bg-red-100 text-red-700 p-4 rounded-lg text-sm md:text-base">
+            <strong>Error:</strong> <span id="error-message"></span>
           </div>
 
-          <!-- AI Summary -->
-          <div
-            id="summary-section"
-            class="hidden bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg"
-          >
-            <h3 class="text-lg font-semibold text-gray-900 mb-2">AI Summary</h3>
-            <p id="summary-text" class="text-gray-700"></p>
+          <div id="summary-section" class="hidden bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
+            <h3 class="font-semibold text-gray-900 mb-1 text-base md:text-lg">AI Summary</h3>
+            <p id="summary-text" class="text-gray-700 text-sm md:text-base leading-relaxed"></p>
           </div>
 
-          <!-- Data Table -->
+          <div id="chart-section" class="hidden bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6">
+             <div class="flex justify-between items-center mb-4 border-b pb-2">
+                <h3 class="font-bold text-gray-800 text-lg">Visual Analysis</h3>
+                <span class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">Auto-Generated</span>
+             </div>
+             <div class="relative h-64 md:h-80 w-full">
+                <canvas id="results-chart"></canvas>
+             </div>
+          </div>
+
           <div id="table-section" class="hidden">
-            <h3 class="text-lg font-semibold text-gray-900 mb-2">
-              Query Results
-            </h3>
-            <div class="overflow-x-auto bg-white rounded-lg shadow">
-              <table
-                id="results-table"
-                class="min-w-full divide-y divide-gray-200"
-              >
-                <!-- Table Head and Body will be generated by JS -->
-              </table>
+            <h3 class="font-semibold text-gray-900 mb-3 text-lg">Query Results</h3>
+            <div class="overflow-x-auto bg-white rounded-lg shadow border border-gray-200">
+              <table id="results-table" class="min-w-full divide-y divide-gray-200">
+                </table>
             </div>
           </div>
 
-          <!-- SQL Query -->
           <div id="sql-section" class="hidden">
-            <h3 class="text-lg font-semibold text-gray-900 mb-2">
-              Executed SQL Query
-            </h3>
-            <pre
-              class="bg-gray-800 text-white p-4 rounded-lg overflow-x-auto text-sm"
-            ><code></code></pre>
+            <details class="text-xs text-gray-500">
+              <summary class="cursor-pointer mb-2">View Executed SQL</summary>
+              <pre class="bg-gray-900 text-green-400 p-4 rounded overflow-x-auto text-xs"><code></code></pre>
+            </details>
           </div>
+
         </div>
       </main>
     </div>

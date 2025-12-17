@@ -34,5 +34,9 @@ document.addEventListener("DOMContentLoaded", () => {
   populateList(instructorsList, "/api/instructors", "full_name");
   populateList(domainsList, "/api/domains", "domain_name");
   populateList(classesList, "/api/classes", "class_name");
-  populateList(topicsList, "/api/topics", "topic_code");
+  
+  // New Topic Codes Fetch
+  if (topicsList) {
+      populateList(topicsList, "/api/topics", "topic_code");
+  }
 });

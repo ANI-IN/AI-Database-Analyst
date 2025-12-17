@@ -11,6 +11,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       body { font-family: "Inter", sans-serif; }
+      /* Custom Scrollbar */
       .scrollable-list {
         scrollbar-width: thin;
         scrollbar-color: #cbd5e0 #f7fafc;
@@ -22,94 +23,107 @@
   <body class="bg-gray-50 text-gray-800">
     
     <header class="bg-white shadow-sm sticky top-0 z-10">
-      <div class="container mx-auto max-w-6xl px-4 py-3 flex justify-between items-center">
-        <div class="flex items-center gap-2">
-           <span class="font-bold text-xl tracking-tight text-blue-700">AI Database Analyst</span>
+      <div class="container mx-auto max-w-7xl px-4 py-3 flex justify-between items-center">
+        <div class="flex items-center">
+          <img src="logo.png" alt="Interview Kickstart" class="h-8 md:h-10 w-auto" />
         </div>
-        <a href="/" class="text-gray-600 hover:text-blue-600 font-medium transition">
-          &larr; Back to Chat
+        <a
+          href="/"
+          class="text-gray-600 hover:text-blue-600 font-semibold text-sm md:text-base transition"
+        >
+          &larr; Back to Analyst
         </a>
       </div>
     </header>
 
-    <div class="container mx-auto p-4 md:p-8 max-w-6xl">
+    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
       
-      <div class="mb-10 text-center">
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">System Guide & Data Dictionary</h1>
-        
+      <div class="mb-10 text-center md:text-left">
+        <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-2">System Guide & Data Dictionary</h1>
+        <p class="text-gray-600 max-w-2xl text-sm md:text-base">
+          Use the lists below to find the exact spelling of Instructors, Domains, Classes, and Topic Codes to ensure 100% accurate queries.
+        </p>
       </div>
 
       <div class="grid md:grid-cols-2 gap-6 mb-12">
         <div class="bg-blue-50 border border-blue-100 p-5 rounded-xl">
-          <h3 class="font-bold text-blue-800 flex items-center gap-2 mb-2">
-             How to handle Edge Cases
+          <h3 class="font-bold text-blue-800 flex items-center gap-2 mb-2 text-base md:text-lg">
+            <span>⚡</span> How to handle Edge Cases
           </h3>
-          <ul class="text-sm text-blue-900 space-y-2">
-            <li><strong>Multiple People:</strong> If you ask for "Robert", the AI checks for <em>Robert Smith</em>, <em>Robert Jones</em>, etc. Be specific if needed.</li>
-            <li><strong>Dates are PST:</strong> "Jan 14th" means Jan 14th in Pacific Time. No timezone conversion happens.</li>
-            <li><strong>Typos:</strong> Our system auto-corrects "Konstninos" to "Konstantinos". You don't need to be perfect.</li>
-          </ul>
+          <ul class="text-sm md:text-base text-blue-900 space-y-2">
+            <li><strong>Multiple People:</strong> "Robert" checks for <em>Robert Smith</em>, <em>Robert Jones</em>, etc.</li>
+            <li><strong>Dates are PST:</strong> "Jan 14th" means Jan 14th in Pacific Time.</li>
+            <li><strong>Typos:</strong> The system auto-corrects "Konstninos" to "Konstantinos".</li>
+            <li><strong>Be Specific:</strong> "Backend" matches both a <em>Class</em> and a <em>Domain</em>. Add "Domain" to your query to be precise.</li>
+            <li><strong>Specify Years:</strong> Always include "2024" or "2025" to avoid mixing data from previous years.</li>
+            </ul>
         </div>
 
         <div class="bg-green-50 border border-green-100 p-5 rounded-xl">
-          <h3 class="font-bold text-green-800 flex items-center gap-2 mb-2">
-            Power Queries
+          <h3 class="font-bold text-green-800 flex items-center gap-2 mb-2 text-base md:text-lg">
+            <span>🚀</span> Quick Copy Prompts
           </h3>
-          <ul class="text-sm text-green-900 space-y-2">
-            <li><strong>Trends:</strong> Ask "Show me the month-over-month trend for..."</li>
-            <li><strong>Comparisons:</strong> Ask "Compare Jan 2024 vs Feb 2024 for..."</li>
-            <li><strong>consistency:</strong> Ask "Who is the most consistent instructor?" (Uses Variance).</li>
+          <ul class="text-sm md:text-base text-green-900 space-y-2">
+            <li><strong>Full Details:</strong> List all sessions for [Instructor Name]</li>
+            <li><strong>Domain Trend:</strong> Rating trend for [Domain Name] quater wise</li>
+            <li><strong>Comparison:</strong> We are launching a series of masterclasses on Agentic AI. Please identify the top three instructors who can lead these sessions, with the ability to take the maximum number of sessions and consistently deliver high ratings</li>
           </ul>
         </div>
       </div>
 
-      <h2 class="text-2xl font-bold text-gray-900 mb-6 border-b pb-2">Data Dictionary</h2>
+      <h2 class="text-2xl font-bold text-gray-900 mb-6 border-b pb-2">Browse Database Entities</h2>
       
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
         
-        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col h-80">
-          <h3 class="font-semibold text-gray-700 mb-2">Instructors</h3>
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 flex flex-col h-96">
+          <h3 class="font-bold text-gray-800 mb-2 flex items-center gap-2 text-base md:text-lg">
+             Instructors
+          </h3>
           <input type="text" onkeyup="filterList(this, 'instructors-list')" placeholder="Search names..." 
-                 class="w-full mb-3 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
-          <ul id="instructors-list" class="scrollable-list flex-1 overflow-y-auto space-y-1 text-sm text-gray-600">
-            <li class="animate-pulse">Loading...</li>
+                 class="w-full mb-3 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition">
+          <ul id="instructors-list" class="scrollable-list flex-1 overflow-y-auto space-y-1 text-sm md:text-base text-gray-600">
+            <li class="animate-pulse text-gray-400">Loading...</li>
           </ul>
         </div>
 
-        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col h-80">
-          <h3 class="font-semibold text-gray-700 mb-2">Domains</h3>
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 flex flex-col h-96">
+          <h3 class="font-bold text-gray-800 mb-2 flex items-center gap-2 text-base md:text-lg">
+             Domains
+          </h3>
           <input type="text" onkeyup="filterList(this, 'domains-list')" placeholder="Search domains..." 
-                 class="w-full mb-3 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
-          <ul id="domains-list" class="scrollable-list flex-1 overflow-y-auto space-y-1 text-sm text-gray-600">
-            <li class="animate-pulse">Loading...</li>
+                 class="w-full mb-3 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition">
+          <ul id="domains-list" class="scrollable-list flex-1 overflow-y-auto space-y-1 text-sm md:text-base text-gray-600">
+            <li class="animate-pulse text-gray-400">Loading...</li>
           </ul>
         </div>
 
-        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col h-80">
-          <h3 class="font-semibold text-gray-700 mb-2">Classes</h3>
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 flex flex-col h-96">
+          <h3 class="font-bold text-gray-800 mb-2 flex items-center gap-2 text-base md:text-lg">
+             Classes
+          </h3>
           <input type="text" onkeyup="filterList(this, 'classes-list')" placeholder="Search classes..." 
-                 class="w-full mb-3 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
-          <ul id="classes-list" class="scrollable-list flex-1 overflow-y-auto space-y-1 text-sm text-gray-600">
-            <li class="animate-pulse">Loading...</li>
+                 class="w-full mb-3 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition">
+          <ul id="classes-list" class="scrollable-list flex-1 overflow-y-auto space-y-1 text-sm md:text-base text-gray-600">
+            <li class="animate-pulse text-gray-400">Loading...</li>
           </ul>
         </div>
 
-        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col h-80">
-          <h3 class="font-semibold text-gray-700 mb-2">Session Types</h3>
-          <input type="text" onkeyup="filterList(this, 'topics-list')" placeholder="Search types..." 
-                 class="w-full mb-3 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
-          <ul id="topics-list" class="scrollable-list flex-1 overflow-y-auto space-y-1 text-sm text-gray-600">
-            <li class="animate-pulse">Loading...</li>
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 flex flex-col h-96">
+          <h3 class="font-bold text-gray-800 mb-2 flex items-center gap-2 text-base md:text-lg">
+              Topic Codes
+          </h3>
+          <input type="text" onkeyup="filterList(this, 'topics-list')" placeholder="Search topics..." 
+                 class="w-full mb-3 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition">
+          <ul id="topics-list" class="scrollable-list flex-1 overflow-y-auto space-y-1 text-sm md:text-base text-gray-600">
+            <li class="animate-pulse text-gray-400">Loading...</li>
           </ul>
         </div>
 
       </div>
-
     </div>
 
     <script src="/instructions.js"></script>
     <script>
-      // Client-side search filter
       function filterList(input, listId) {
         const filter = input.value.toUpperCase();
         const ul = document.getElementById(listId);
