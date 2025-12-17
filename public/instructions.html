@@ -1,227 +1,129 @@
-<!-- public/instructions.html -->
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Instructions - AI Database Analyst</title>
+    <title>Analyst Instructions</title>
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-      body {
-        font-family: "Inter", sans-serif;
-      }
-
-      /* Responsive logo styles */
-      .logo-img {
-        height: auto;
-        max-height: 40px;
-        width: auto;
-        max-width: 120px;
-      }
-
-      @media (max-width: 640px) {
-        .logo-img {
-          max-width: 80px;
-          max-height: 30px;
-        }
-      }
-
-      @media (max-width: 480px) {
-        .logo-img {
-          max-width: 60px;
-          max-height: 25px;
-        }
-      }
-
-      /* Custom scrollbar styling for better visibility */
+      body { font-family: "Inter", sans-serif; }
       .scrollable-list {
         scrollbar-width: thin;
         scrollbar-color: #cbd5e0 #f7fafc;
       }
-
-      .scrollable-list::-webkit-scrollbar {
-        width: 8px;
-      }
-
-      .scrollable-list::-webkit-scrollbar-track {
-        background: #f7fafc;
-        border-radius: 4px;
-      }
-
-      .scrollable-list::-webkit-scrollbar-thumb {
-        background: #cbd5e0;
-        border-radius: 4px;
-        border: 1px solid #e2e8f0;
-      }
-
-      .scrollable-list::-webkit-scrollbar-thumb:hover {
-        background: #a0aec0;
-      }
-
-      /* Fade effect at bottom to indicate more content */
-      .list-container {
-        position: relative;
-      }
-
-      .list-container::after {
-        content: "";
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        height: 20px;
-        background: linear-gradient(transparent, #f9fafb);
-        pointer-events: none;
-        border-radius: 0 0 0.5rem 0.5rem;
-      }
+      .scrollable-list::-webkit-scrollbar { width: 6px; }
+      .scrollable-list::-webkit-scrollbar-thumb { background-color: #cbd5e0; border-radius: 4px; }
     </style>
   </head>
   <body class="bg-gray-50 text-gray-800">
-    <!-- Header -->
+    
     <header class="bg-white shadow-sm sticky top-0 z-10">
-      <div
-        class="container mx-auto max-w-6xl px-4 py-3 flex justify-between items-center"
-      >
-        <div class="flex items-center">
-          <img src="logo.png" alt="Logo" class="logo-img" />
+      <div class="container mx-auto max-w-6xl px-4 py-3 flex justify-between items-center">
+        <div class="flex items-center gap-2">
+           <span class="font-bold text-xl tracking-tight text-blue-700">AI Database Analyst</span>
         </div>
-        <a
-          href="/"
-          class="text-blue-600 font-semibold hover:text-blue-800 transition text-sm sm:text-base"
-          >&larr; Back to Analyst</a
-        >
+        <a href="/" class="text-gray-600 hover:text-blue-600 font-medium transition">
+          &larr; Back to Chat
+        </a>
       </div>
     </header>
 
-    <div class="container mx-auto p-4 md:p-8 max-w-5xl">
-      <main class="bg-white p-4 sm:p-6 lg:p-8 rounded-xl shadow-md">
-        <h2
-          class="text-2xl sm:text-3xl font-bold text-gray-900 mb-6 border-b pb-4"
-        >
-          How to Write Good Prompts
-        </h2>
+    <div class="container mx-auto p-4 md:p-8 max-w-6xl">
+      
+      <div class="mb-10 text-center">
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">System Guide & Data Dictionary</h1>
+        
+      </div>
 
-        <p class="mb-8 text-gray-600 text-sm sm:text-base">
-          To get the best results from the AI, it's helpful to know what data is
-          available. You can use the following lists of instructors, domains,
-          and classes to make your questions more specific.
-        </p>
-
-        <!-- Data Lists Section -->
-        <div
-          class="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 mb-10"
-        >
-          <!-- Instructors Card -->
-          <div class="bg-gray-50 p-4 sm:p-6 rounded-lg list-container">
-            <h3 class="text-lg sm:text-xl font-semibold mb-3 text-gray-800">
-              Instructors
-            </h3>
-            <div class="text-xs text-gray-500 mb-2 flex items-center">
-              <span>📜 Scroll to see all</span>
-            </div>
-            <ul
-              id="instructors-list"
-              class="scrollable-list list-disc list-inside space-y-1 text-gray-700 h-48 overflow-y-auto text-sm border border-gray-200 rounded p-3 bg-white"
-            >
-              <li>Loading...</li>
-            </ul>
-          </div>
-          <!-- Domains Card -->
-          <div class="bg-gray-50 p-4 sm:p-6 rounded-lg list-container">
-            <h3 class="text-lg sm:text-xl font-semibold mb-3 text-gray-800">
-              Domains
-            </h3>
-            <div class="text-xs text-gray-500 mb-2 flex items-center">
-              <span>📜 Scroll to see all</span>
-            </div>
-            <ul
-              id="domains-list"
-              class="scrollable-list list-disc list-inside space-y-1 text-gray-700 h-48 overflow-y-auto text-sm border border-gray-200 rounded p-3 bg-white"
-            >
-              <li>Loading...</li>
-            </ul>
-          </div>
-          <!-- Classes Card -->
-          <div class="bg-gray-50 p-4 sm:p-6 rounded-lg list-container">
-            <h3 class="text-lg sm:text-xl font-semibold mb-3 text-gray-800">
-              Classes
-            </h3>
-            <div class="text-xs text-gray-500 mb-2 flex items-center">
-              <span>📜 Scroll to see all</span>
-            </div>
-            <ul
-              id="classes-list"
-              class="scrollable-list list-disc list-inside space-y-1 text-gray-700 h-48 overflow-y-auto text-sm border border-gray-200 rounded p-3 bg-white"
-            >
-              <li>Loading...</li>
-            </ul>
-          </div>
-        </div>
-
-        <!-- Example Prompts Section -->
-        <div>
-          <h3
-            class="text-xl sm:text-2xl font-semibold mb-4 text-gray-800 border-b pb-3"
-          >
-            Example Prompts
+      <div class="grid md:grid-cols-2 gap-6 mb-12">
+        <div class="bg-blue-50 border border-blue-100 p-5 rounded-xl">
+          <h3 class="font-bold text-blue-800 flex items-center gap-2 mb-2">
+             How to handle Edge Cases
           </h3>
-          <div class="space-y-3">
-            <div class="bg-gray-100 p-3 sm:p-4 rounded-lg">
-              <p class="font-mono text-gray-800 text-xs sm:text-sm break-words">
-                "For 2025, show quarter-wise overall average rating, session
-                counts and sum of responses"
-              </p>
-            </div>
-            <div class="bg-gray-100 p-3 sm:p-4 rounded-lg">
-              <p class="font-mono text-gray-800 text-xs sm:text-sm break-words">
-                "Identify the highest-rated instructor in Q1 2025 with at least
-                10 sessions"
-              </p>
-            </div>
-            <div class="bg-gray-100 p-3 sm:p-4 rounded-lg">
-              <p class="font-mono text-gray-800 text-xs sm:text-sm break-words">
-                "Find the most consistent instructor in Q2 2025 with at least 6
-                sessions"
-              </p>
-            </div>
-            <div class="bg-gray-100 p-3 sm:p-4 rounded-lg">
-              <p class="font-mono text-gray-800 text-xs sm:text-sm break-words">
-                "Show top 3 instructors by weighted average in Q2 2025, min 10
-                sessions each"
-              </p>
-            </div>
-            <div class="bg-gray-100 p-3 sm:p-4 rounded-lg">
-              <p class="font-mono text-gray-800 text-xs sm:text-sm break-words">
-                "Which category had the higher average rating 'Live Class' vs
-                'Test Review Session' in Q1 2025?"
-              </p>
-            </div>
-            <div class="bg-gray-100 p-3 sm:p-4 rounded-lg">
-              <p class="font-mono text-gray-800 text-xs sm:text-sm break-words">
-                "List sessions in February Q1 2025 with rated % below 60%"
-              </p>
-            </div>
-            <div class="bg-gray-100 p-3 sm:p-4 rounded-lg">
-              <p class="font-mono text-gray-800 text-xs sm:text-sm break-words">
-                "For Fullstack domain, compare Q1 2025 vs Q2 2025: sessions,
-                average rating, sum of responses"
-              </p>
-            </div>
-            <div class="bg-gray-100 p-3 sm:p-4 rounded-lg">
-              <p class="font-mono text-gray-800 text-xs sm:text-sm break-words">
-                "List instructors who teach more than one domain and have an
-                overall average rating of at least 4.4"
-              </p>
-            </div>
-          </div>
+          <ul class="text-sm text-blue-900 space-y-2">
+            <li><strong>Multiple People:</strong> If you ask for "Robert", the AI checks for <em>Robert Smith</em>, <em>Robert Jones</em>, etc. Be specific if needed.</li>
+            <li><strong>Dates are PST:</strong> "Jan 14th" means Jan 14th in Pacific Time. No timezone conversion happens.</li>
+            <li><strong>Typos:</strong> Our system auto-corrects "Konstninos" to "Konstantinos". You don't need to be perfect.</li>
+          </ul>
         </div>
-      </main>
+
+        <div class="bg-green-50 border border-green-100 p-5 rounded-xl">
+          <h3 class="font-bold text-green-800 flex items-center gap-2 mb-2">
+            Power Queries
+          </h3>
+          <ul class="text-sm text-green-900 space-y-2">
+            <li><strong>Trends:</strong> Ask "Show me the month-over-month trend for..."</li>
+            <li><strong>Comparisons:</strong> Ask "Compare Jan 2024 vs Feb 2024 for..."</li>
+            <li><strong>consistency:</strong> Ask "Who is the most consistent instructor?" (Uses Variance).</li>
+          </ul>
+        </div>
+      </div>
+
+      <h2 class="text-2xl font-bold text-gray-900 mb-6 border-b pb-2">Data Dictionary</h2>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+        
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col h-80">
+          <h3 class="font-semibold text-gray-700 mb-2">Instructors</h3>
+          <input type="text" onkeyup="filterList(this, 'instructors-list')" placeholder="Search names..." 
+                 class="w-full mb-3 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+          <ul id="instructors-list" class="scrollable-list flex-1 overflow-y-auto space-y-1 text-sm text-gray-600">
+            <li class="animate-pulse">Loading...</li>
+          </ul>
+        </div>
+
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col h-80">
+          <h3 class="font-semibold text-gray-700 mb-2">Domains</h3>
+          <input type="text" onkeyup="filterList(this, 'domains-list')" placeholder="Search domains..." 
+                 class="w-full mb-3 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+          <ul id="domains-list" class="scrollable-list flex-1 overflow-y-auto space-y-1 text-sm text-gray-600">
+            <li class="animate-pulse">Loading...</li>
+          </ul>
+        </div>
+
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col h-80">
+          <h3 class="font-semibold text-gray-700 mb-2">Classes</h3>
+          <input type="text" onkeyup="filterList(this, 'classes-list')" placeholder="Search classes..." 
+                 class="w-full mb-3 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+          <ul id="classes-list" class="scrollable-list flex-1 overflow-y-auto space-y-1 text-sm text-gray-600">
+            <li class="animate-pulse">Loading...</li>
+          </ul>
+        </div>
+
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col h-80">
+          <h3 class="font-semibold text-gray-700 mb-2">Session Types</h3>
+          <input type="text" onkeyup="filterList(this, 'topics-list')" placeholder="Search types..." 
+                 class="w-full mb-3 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+          <ul id="topics-list" class="scrollable-list flex-1 overflow-y-auto space-y-1 text-sm text-gray-600">
+            <li class="animate-pulse">Loading...</li>
+          </ul>
+        </div>
+
+      </div>
+
     </div>
 
     <script src="/instructions.js"></script>
+    <script>
+      // Client-side search filter
+      function filterList(input, listId) {
+        const filter = input.value.toUpperCase();
+        const ul = document.getElementById(listId);
+        const li = ul.getElementsByTagName("li");
+        
+        for (let i = 0; i < li.length; i++) {
+          const txtValue = li[i].textContent || li[i].innerText;
+          if (txtValue.toUpperCase().indexOf(filter) > -1) {
+            li[i].style.display = "";
+          } else {
+            li[i].style.display = "none";
+          }
+        }
+      }
+    </script>
   </body>
 </html>

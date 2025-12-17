@@ -1,115 +1,91 @@
--- === IK Sessions schema (Type Column Removed) =================
--- Safe to run multiple times.
+-- Enable UUID extension for unique IDs
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
-CREATE EXTENSION IF NOT EXISTS pgcrypto; -- for gen_random_uuid()
+-- ==========================================
+-- 0. CLEANUP (Only run if you need to reset)
+-- ==========================================
+DROP TABLE IF EXISTS fact_sessions CASCADE;
+DROP TABLE IF EXISTS dim_instructor CASCADE;
+DROP TABLE IF EXISTS dim_class CASCADE;
+DROP TABLE IF EXISTS dim_domain CASCADE;
+DROP TABLE IF EXISTS dim_topic CASCADE;
 
--- ---------- Dimensions -----------------------------------------
-CREATE TABLE IF NOT EXISTS dim_instructor (
-  instructor_id SERIAL PRIMARY KEY,
-  instructor_name TEXT UNIQUE NOT NULL
+-- ==========================================
+-- 1. DIMENSION TABLES
+-- ==========================================
+
+-- INSTRUCTORS
+-- We split names for accurate matching but keep a full_name for easy searching.
+CREATE TABLE dim_instructor (
+    instructor_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    first_name TEXT NOT NULL,          -- e.g. "Udit"
+    last_name TEXT NOT NULL,           -- e.g. "Bhatia"
+    -- Auto-generated column: effectively caches "Udit Bhatia" for searches
+    full_name TEXT GENERATED ALWAYS AS (first_name || ' ' || last_name) STORED, 
+    region TEXT,                       -- e.g. "India" or "US"
+    
+    -- Constraint: Prevent duplicate instructor entries
+    UNIQUE(first_name, last_name, region)
 );
 
-CREATE TABLE IF NOT EXISTS dim_class (
-  class_id SERIAL PRIMARY KEY,
-  class_name TEXT UNIQUE NOT NULL
+-- CLASSES
+CREATE TABLE dim_class (
+    class_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    class_name TEXT NOT NULL,          -- e.g. "Product Management Behavioral"
+    region TEXT,                       -- e.g. "US" or "India"
+    
+    UNIQUE(class_name, region)
 );
 
-CREATE TABLE IF NOT EXISTS dim_domain (
-  domain_id SERIAL PRIMARY KEY,
-  domain_name TEXT UNIQUE NOT NULL
+-- DOMAINS
+CREATE TABLE dim_domain (
+    domain_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    domain_name TEXT UNIQUE NOT NULL   -- e.g. "Product Management", "Data Science"
 );
 
--- (dim_type table has been removed)
-
--- THIS TABLE WILL BE USED FOR ALIAS LOOKUP
-CREATE TABLE IF NOT EXISTS dim_value_alias (
-  entity TEXT CHECK (entity IN ('instructor','class','domain')) NOT NULL,
-  canonical TEXT NOT NULL,
-  alias  TEXT NOT NULL,
-  weight NUMERIC DEFAULT 1.0,
-  PRIMARY KEY (entity, alias)
+-- TOPICS
+CREATE TABLE dim_topic (
+    topic_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    topic_code TEXT UNIQUE NOT NULL    -- e.g. "Live Class", "Test Review Session"
 );
 
--- ---------- Fact ------------------------------------------------
--- One row per conducted session (PST calendar)
-CREATE TABLE IF NOT EXISTS fact_session (
-  session_id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+-- ==========================================
+-- 2. FACT TABLE (METRICS)
+-- ==========================================
 
-  topic_code TEXT, -- Contains "Live Class", "Test Review Session", etc.
-  -- type_id REMOVED
-  domain_id  INT NOT NULL REFERENCES dim_domain(domain_id),
-  class_id   INT NOT NULL REFERENCES dim_class(class_id),
-  instructor_id INT NOT NULL REFERENCES dim_instructor(instructor_id),
+CREATE TABLE fact_sessions (
+    session_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    
+    -- Foreign Keys linking to dimensions
+    instructor_id UUID REFERENCES dim_instructor(instructor_id),
+    class_id UUID REFERENCES dim_class(class_id),
+    domain_id UUID REFERENCES dim_domain(domain_id),
+    topic_id UUID REFERENCES dim_topic(topic_id),
 
-  -- time (store UTC instant for a canonical 09:00 PST on that date)
-  session_ts_utc TIMESTAMPTZ NOT NULL,
-  pst_date     DATE NOT NULL,
-  pst_year     INT NOT NULL,
-  pst_month    INT NOT NULL CHECK (pst_month BETWEEN 1 AND 12),
-  pst_quarter  INT NOT NULL CHECK (pst_quarter BETWEEN 1 AND 4),
-  pst_month_start DATE NOT NULL,
+    -- TIMEZONE SAFETY
+    -- Stored as strictly DATE (YYYY-MM-DD). 
+    -- This prevents time-shifting errors (e.g. Jan 13th 11 PM vs Jan 14th 2 AM).
+    pst_date DATE NOT NULL,
 
-  -- metrics
-  average      NUMERIC,    -- e.g., 4.75
-  responses    INT,       -- #students who rated
-  students_attended INT,      -- #students attended
-  rated_pct    NUMERIC,    -- 0..100 (percentage points)
+    -- PERFORMANCE METRICS
+    average_rating NUMERIC(4, 2),     -- 1.00 to 5.00
+    responses INTEGER DEFAULT 0,      -- Weighted Average input
+    attended INTEGER DEFAULT 0,       -- Attendance count
+    rated_pct NUMERIC(5, 2),          -- 0.00 to 100.00
 
-  -- natural key prevents duplicates across re-loads
-  -- Removed type_id from unique constraint
-  UNIQUE (topic_code, domain_id, class_id, instructor_id, pst_date)
+    -- Constraint: Prevent duplicate session data imports
+    UNIQUE(instructor_id, class_id, pst_date, topic_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_fact_session_time
-  ON fact_session (pst_year, pst_quarter, pst_month, pst_date);
+-- ==========================================
+-- 3. INDEXES FOR PERFORMANCE
+-- ==========================================
 
-CREATE INDEX IF NOT EXISTS idx_fact_session_instr
-  ON fact_session (instructor_id);
+-- Faster Date Range Filtering (e.g., "Q1 2024")
+CREATE INDEX idx_fact_sessions_date ON fact_sessions(pst_date);
 
-CREATE INDEX IF NOT EXISTS idx_fact_session_class
-  ON fact_session (class_id);
+-- Faster Joins on Instructor
+CREATE INDEX idx_fact_sessions_instructor ON fact_sessions(instructor_id);
 
--- ---------- Helper Function for Alias Lookup --------------------
--- This function finds a canonical name by searching for an alias (case-insensitive)
-CREATE OR REPLACE FUNCTION lookup_canonical_value(entity_type TEXT, alias_val TEXT)
-RETURNS TEXT AS $$
-DECLARE
-  canonical_name TEXT;
-BEGIN
-  -- Positional references $1 (entity_type) and $2 (alias_val) fix the ambiguity.
-  -- We rely on the ETL script to insert aliases as lowercase.
-  SELECT canonical INTO canonical_name
-  FROM dim_value_alias
-  WHERE entity = $1 
-    AND alias = LOWER($2) -- LOWER() ensures case-insensitivity against the lowercase alias table
-  LIMIT 1; 
-
-  IF canonical_name IS NOT NULL THEN
-    RETURN canonical_name;
-  END IF;
-  
-  -- Fallback: if no alias is found, return the original input
-  RETURN alias_val;
-END;
-$$ LANGUAGE plpgsql;
-
-
--- ---------- Analysis view (what the app queries) ----------------
-CREATE OR REPLACE VIEW v_sessions AS
-SELECT
-  fs.session_id,
-  fs.topic_code,
-  -- type column REMOVED
-  dd.domain_name  AS domain,
-  dc.class_name   AS class,
-  di.instructor_name AS instructor,
-
-  fs.session_ts_utc,
-  fs.pst_date, fs.pst_year, fs.pst_month, fs.pst_quarter, fs.pst_month_start,
-
-  fs.average, fs.responses, fs.students_attended, fs.rated_pct
-FROM fact_session fs
--- dim_type JOIN REMOVED
-JOIN dim_domain  dd ON dd.domain_id   = fs.domain_id
-JOIN dim_class   dc ON dc.class_id    = fs.class_id
-JOIN dim_instructor di ON di.instructor_id = fs.instructor_id;
+-- Faster Search on Instructor Names (Optional but good for DB-side debugging)
+CREATE INDEX idx_dim_instructor_fullname ON dim_instructor(full_name);
