@@ -2,8 +2,8 @@
 const express = require("express");
 const cors = require("cors");
 const Fuse = require("fuse.js"); 
-const path = require("path"); // <--- ADD THIS IMPORT
 const { Pool } = require("pg");
+const path = require("path"); // <--- CRITICAL IMPORT
 require("dotenv").config();
 
 const { getAiSql, getAiSummary, extractEntities } = require("./ai");
@@ -14,8 +14,12 @@ const pool = new Pool({ connectionString: process.env.NEON_DATABASE_URL });
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static("public"));
 
+// ==========================================
+// 0. STATIC FILE SERVING (THE FIX)
+// ==========================================
+
+// 1. Tell Express where the 'public' folder is relative to the script
 app.use(express.static(path.join(__dirname, "public")));
 
 // 2. Explicitly serve index.html for the root route "/"
@@ -23,8 +27,13 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-// 3. Explicitly serve instructions.html (just to be safe)
+// 3. Explicitly serve instructions.html
 app.get("/instructions", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "instructions.html"));
+});
+
+// Make sure .html extension also works if typed manually
+app.get("/instructions.html", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "instructions.html"));
 });
 
@@ -106,17 +115,10 @@ function resolveTerm(term) {
   if (allMatches.length === 0) return [];
 
   // 4. AMBIGUITY HANDLING
-  // We don't just pick the first one. We pick all matches that are "close enough" to the best one.
-  // Example: Robert Smith (0.10) vs Robert Jones (0.11) -> Both are valid.
-  // Example: Robert Smith (0.10) vs Robert's Class (0.35) -> Drop the class.
-  
   const bestScore = allMatches[0].score;
-  // We accept matches within a 0.05 margin of the best score
   const threshold = bestScore + 0.05; 
   
   const topCandidates = allMatches.filter(m => m.score <= threshold);
-
-  // Limit to top 5 to prevent prompt overflow
   return topCandidates.slice(0, 5); 
 }
 
@@ -128,7 +130,7 @@ app.post("/api/query", async (req, res) => {
   if (!userQuery) return res.status(400).json({ error: "Query required" });
 
   try {
-    // Step 1: Extract "Robert", "Data Science", etc.
+    // Step 1: Extract entities
     const entities = await extractEntities(userQuery);
     
     let contextMessages = [];
@@ -152,11 +154,9 @@ app.post("/api/query", async (req, res) => {
           contextMessages.push(`User means Topic '${match.value}'. Filter by dt.topic_code = '${match.value}'`);
 
       } else if (candidates.length > 1) {
-        // Ambiguous Match (e.g., 3 Roberts)
+        // Ambiguous Match
         console.log(`[Ambiguity] "${term}" matched ${candidates.length} items.`);
-        
         const names = candidates.map(c => `'${c.value}'`).join(", ");
-        // We instruct the AI that it could be ANY of these people
         contextMessages.push(
           `The term '${term}' is ambiguous and matches multiple entities: ${names}. ` +
           `Filter by checking if the name/title is IN (${names}) OR matches the partial term.`
@@ -170,9 +170,6 @@ app.post("/api/query", async (req, res) => {
       : "";
     
     const finalPrompt = userQuery + contextString;
-    console.log("------------------------------------------------");
-    console.log(contextString);
-    console.log("------------------------------------------------");
 
     // Step 4: Generate SQL
     const sqlQuery = await getAiSql(finalPrompt);
@@ -191,6 +188,10 @@ app.post("/api/query", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// ==========================================
+// 4. METADATA API ENDPOINTS
+// ==========================================
 
 app.get("/api/instructors", async (req, res) => {
   try {
@@ -220,6 +221,9 @@ app.get("/api/topics", async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ==========================================
+// 5. START SERVER
+// ==========================================
 app.listen(PORT, async () => {
   console.log(`Server running on http://localhost:${PORT}`);
   await initAllCaches();
