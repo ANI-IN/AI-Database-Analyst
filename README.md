@@ -1,393 +1,216 @@
-# AI Database Analyst
+ # AI Database Analyst
 
-A web application that converts natural language questions into PostgreSQL queries using AI, specifically designed for analyzing live class session data.
+**AI Database Analyst** is a full-stack **RAG (Retrieval-Augmented Generation)** application designed to democratize data access. It allows non-technical users to query complex educational session data using natural language.
+
+Instead of writing SQL, users ask questions like *"Who is the most consistent instructor in Q2 2024?"*. The system uses a multi-stage AI pipeline to resolve entities, generate robust PostgreSQL queries, visualize the results, and provide an executive summary.
+
+---
 
 ## Table of Contents
 
-- [Overview](#overview)
-- [Architecture](#architecture)
-- [System Flow](#system-flow)
-- [Database Schema](#database-schema)
-- [Components Deep Dive](#components-deep-dive)
-- [API Endpoints](#api-endpoints)
-- [ETL Process](#etl-process)
-- [Frontend Implementation](#frontend-implementation)
-- [Configuration](#configuration)
-- [Deployment](#deployment)
-- [Usage Examples](#usage-examples)
-- [Troubleshooting](#troubleshooting)
+1. [System Architecture](#-system-architecture)
+2. [Core Logic & RAG Pipeline](#-Core-Logic-&-RAG-Pipeline)
+3. [Database Schema](#-database-schema)
+4. [Features](#-features)
+5. [Prerequisites & Installation](#-prerequisites--installation)
+6. [Configuration](#-configuration)
+7. [ETL & Data Ingestion](#-etl--data-ingestion)
+8. [API Reference](#-api-reference)
+9. [Troubleshooting](#-troubleshooting)
 
-## Overview
+---
 
-This application enables users to query session data using natural language. Instead of writing complex SQL queries, users can ask questions like "Who is the most consistent instructor in Q2 2025?" and get comprehensive results with AI-generated summaries.
+## System Architecture
 
-### Key Features
+The application is built on a Node.js/Express backend and a Vanilla JS frontend. It leverages **Groq** for high-speed LLM inference and **Neon (PostgreSQL)** for serverless database management.
 
-- **Natural Language Processing**: Convert plain English to SQL using Groq AI
-- **Session Analytics**: Analyze instructor performance, student engagement, and session trends
-- **Time-based Analysis**: Quarter-wise, month-wise comparisons with PST timezone handling
-- **Real-time Results**: Instant query execution with formatted results
-- **Responsive Design**: Mobile-friendly interface with Tailwind CSS
+![System Architecture](./images/System%20Architecture.png)
 
-## Architecture
+---
 
-![Architecture Diagram](./images/Architecture%20Diagram.png)
+## Core Logic & RAG Pipeline
 
-## System Flow
+This is not a simple "text-to-SQL" wrapper. It employs a **Deterministic Guardrail** approach to ensure accuracy.
 
-### Query Processing Flow
+### The Query Resolution Flow
 
-![Query Processing Flow Diagram](./images/Query%20Processing%20Flow.png)
+1. **NER (Named Entity Recognition):** The AI extracts potential entities (e.g., "Udit", "Backend", "Live Class") from the user's prompt.
+2. **Fuzzy Resolution (The "Fuzzy" Layer):**
+* The server maintains an in-memory cache of all Instructors, Domains, and Classes using **Fuse.js**.
+* Extracted entities are fuzzy-matched against this cache.
+* *Example:* User types "Konstatinos" -> System resolves to "Konstantinos Pappas".
 
-### AI Query Generation Logic
 
-![AI Query Generation Logic Diagram](./images/AI%20Query%20Generation%20Logic.png)
+3. **Context Injection:** The resolved names are injected back into the LLM prompt as system context rules (e.g., `Filter by di.full_name = 'Konstantinos Pappas'`).
+4. **SQL Generation:** The LLM generates SQL using the injected context and strict schema rules.
+5. **Execution & Summarization:** The SQL is executed, and the results are fed back to the LLM to generate a human-readable summary.
+
+![The Query Resolution Flow](./images/The%20Query%20Resolution%20Flow.png)
+
+---
 
 ## Database Schema
 
-### Star Schema Design
+The database uses a **Star Schema** optimized for analytical queries. The central `fact_sessions` table links to dimensions for Instructors, Classes, Domains, and Topics.
+![Database Schema](./images/Database%20Schema.png)
 
-![Star Schema Design Diagram](./images/Star%20Schema%20Design.png)
+---
 
-### View Structure
+## Features
 
-The application primarily queries `v_sessions` view which denormalizes the star schema:
+* **Natural Language Processing:** Converts English questions into complex SQL queries involving Joins, Aggregations, and Window Functions.
+* **Smart Visualization:** The frontend automatically detects if the data is time-series (Line Chart) or categorical (Bar Chart) and renders using Chart.js.
+* **Timezone Intelligence:** All dates are normalized to **PST** to prevent date-shifting errors during analysis.
+* **Ambiguity Handling:** If a user asks about "Backend" (which could be a Class or a Domain), the system attempts to resolve the specific intent or searches both.
+* **Performance Optimization:**
+* Connection Pooling via `pg`.
+* In-memory caching of dimension tables for instant fuzzy matching.
+* Database indexing on `pst_date` and Foreign Keys.
 
-```sql
-CREATE OR REPLACE VIEW v_sessions AS
-SELECT
-  fs.session_id,
-  fs.topic_code,
-  dt.type_name AS type,
-  dd.domain_name AS domain,
-  dc.class_name AS class,
-  di.instructor_name AS instructor,
-  fs.session_ts_utc,
-  fs.pst_date, fs.pst_year, fs.pst_month, fs.pst_quarter,
-  fs.average, fs.responses, fs.students_attended, fs.rated_pct
-FROM fact_session fs
-JOIN dim_type dt ON dt.type_id = fs.type_id
-JOIN dim_domain dd ON dd.domain_id = fs.domain_id
-JOIN dim_class dc ON dc.class_id = fs.class_id
-JOIN dim_instructor di ON di.instructor_id = fs.instructor_id;
+
+
+---
+
+## Prerequisites & Installation
+
+### Prerequisites
+
+* **Node.js** (v18+)
+* **PostgreSQL Database** (Local or Neon)
+* **Groq API Key** (for LLM access)
+
+### Installation
+
+1. **Clone the Repository**
+```bash
+git clone [https://github.com/your-username/ai-database-analyst.git](https://github.com/your-username/ai-database-analyst.git)
+cd ai-database-analyst
+
 ```
 
-## Components Deep Dive
 
-### 1. AI Module (`ai.js`)
+2. **Install Dependencies**
+```bash
+npm install
 
-**Purpose**: Handles communication with Groq AI API for SQL generation and result summarization.
-
-**Key Functions**:
-
-- `getAiSql(userQuery, maxRetries)`: Converts natural language to SQL
-- `getAiSummary(userQuery, sqlQuery, data)`: Generates human-readable summaries
-
-**Logic Flow**:
-
-![Logic Flow Diagram](./images/Logic%20Flow%20Diagram.png)
-
-**Retry Mechanism**:
-
-- 3 attempts for SQL generation
-- 2 attempts for summary generation
-- Exponential backoff on 503 errors
-- Different models for different tasks (llama3-70b for SQL, llama3-8b for summaries)
-
-### 2. Database Module (`db.js`)
-
-**Purpose**: Manages PostgreSQL connections using connection pooling.
-
-**Key Features**:
-
-- Connection pooling for performance
-- SSL configuration for Neon database
-- Automatic client release
-- Comprehensive error handling
-
-**Connection Flow**:
-
-![Connection Flow Diagram](./images/Connection%20Flow.png)
-
-### 3. Server Module (`server.js`)
-
-**Purpose**: Express.js server handling HTTP requests and coordinating between components.
-
-**Endpoints**:
-
-- `POST /api/query`: Main query processing
-- `GET /api/instructors`: Fetch instructor list
-- `GET /api/domains`: Fetch domain list
-- `GET /api/classes`: Fetch class list
-
-**Query Processing Logic**:
-
-![Query Processing Logic Diagram](./images/Query%20Processing%20Logic.png)
-
-**SQL Validation Rules**:
-
-- Must start with `WITH` or `SELECT`
-- Must contain basic SQL structure (`FROM` clause)
-- String and non-empty validation
-- Security-focused (prevents non-SELECT operations)
-
-## API Endpoints
-
-### POST /api/query
-
-**Request Body**:
-
-```json
-{
-  "query": "Who is the most consistent instructor in Q2 2025?"
-}
 ```
 
-**Response**:
 
-```json
-{
-  "data": [
-    {
-      "instructor": "John Doe",
-      "avg_rating": 4.85,
-      "sessions": 12,
-      "variance": 0.12
-    }
-  ],
-  "summary": "John Doe is the most consistent instructor in Q2 2025 with an average rating of 4.85 across 12 sessions.",
-  "sql": "WITH instructor_stats AS (SELECT instructor, AVG(average) as avg_rating, COUNT(*) as sessions, VARIANCE(average) as variance FROM v_sessions WHERE pst_year = 2025 AND pst_quarter = 2 GROUP BY instructor HAVING COUNT(*) >= 6) SELECT * FROM instructor_stats ORDER BY variance ASC LIMIT 1;"
-}
+3. **Database Setup**
+Execute the `schema.sql` file in your PostgreSQL instance to create the necessary tables and extensions.
+```bash
+psql "your_connection_string" -f schema.sql
+
 ```
 
-**Error Response**:
 
-```json
-{
-  "error": "Generated SQL query is invalid",
-  "details": "SQL: INVALID QUERY",
-  "suggestion": "Try rephrasing your question"
-}
-```
-
-### GET /api/instructors
-
-**Response**:
-
-```json
-[{ "instructor_name": "John Doe" }, { "instructor_name": "Jane Smith" }]
-```
-
-## ETL Process
-
-### Data Pipeline Flow
-
-![Data Pipeline Flow Diagram](./images/Data%20Pipeline%20Flow.png)
-
-### Column Mapping Logic
-
-The ETL script uses flexible column mapping to handle various Excel formats:
-
-```javascript
-const COLS = {
-  topic: ["Topic Code", "Topic code", "Topic", "Type Code"],
-  type: ["Type", "Session Type"],
-  domain: ["Domain"],
-  class: ["Class"],
-  instructor: ["Instructor", "Instructor Name"],
-  sessionDate: ["Session Date", "Date"],
-  average: ["Average", "Overall Average", "Rating"],
-  responses: ["No of Student Responses", "Responses"],
-  attended: ["No of Students Attended", "Attended"],
-  ratedPct: ["% Rated", "Rated %", "Percent Rated"],
-};
-```
-
-### Date Handling
-
-Multiple date format support:
-
-- Excel serial numbers (e.g., 44927)
-- Formatted strings ("January 4, 2025")
-- Standard formats ("2025-01-04")
-- JavaScript Date objects
-
-### PST Timezone Calculations
-
-```javascript
-// Calendar fields calculation
-const [y, m, d] = pstDate.split("-").map(Number);
-const q = Math.floor((m - 1) / 3) + 1; // Quarter calculation
-const monthStart = `${y}-${String(m).padStart(2, "0")}-01`;
-
-// UTC timestamp for 09:00 PST
-make_timestamptz(year, month, day, 9, 0, 0, "America/Los_Angeles");
-```
-
-## Frontend Implementation
-
-### Technology Stack
-
-- **HTML5**: Semantic structure
-- **Tailwind CSS**: Utility-first styling
-- **Vanilla JavaScript**: No framework dependencies
-- **Responsive Design**: Mobile-first approach
+---
 
 ## Configuration
 
-### Environment Variables
+Create a `.env` file in the root directory:
 
-```bash
-# Database Configuration
+```env
+# Database Connection (Neon/Postgres)
 NEON_DATABASE_URL=postgresql://user:password@host:port/database?sslmode=require
 
-# AI Configuration
-GROQ_API_KEY=your_groq_api_key_here
+# AI Provider
+GROQ_API_KEY=gsk_your_api_key_here
 
-# Server Configuration (optional)
+# Server Port (Optional, defaults to 3001)
 PORT=3001
+
 ```
 
-### System Prompt Configuration
+---
 
-The AI system prompt includes:
+## ETL & Data Ingestion
 
-- Database schema definition
-- Query patterns and examples
-- Output format specifications
-- Best practices for PostgreSQL
+The system includes a robust ETL pipeline to handle raw Excel data dumps.
 
-## Deployment
+### 1. Load Session Data
 
-### Vercel Deployment
-
-```json
-{
-  "version": 2,
-  "builds": [
-    {
-      "src": "server.js",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "server.js"
-    }
-  ]
-}
-```
-
-### Local Development
+The `load_excel.mjs` script handles normalization, dimension extraction, and fact insertion. It automatically handles date formats and percentage calculations.
 
 ```bash
-# Install dependencies
-npm install
+# Run with default file (data/sessions.xlsx)
+node etl/load_excel.mjs
 
-# Set up environment variables
-cp .env.example .env
-# Edit .env with your configuration
+# Run with custom file
+node etl/load_excel.mjs --file=./uploads/new_data.xlsx
 
-# Run ETL (optional)
-node etl/load_excel.mjs --file=path/to/your/data.xlsx
-
-# Start development server
-npm start
 ```
 
-## Usage Examples
+### 2. Generate Aliases (Optional)
 
-### Performance Analysis Queries
+The `generate_aliases.mjs` script creates variations of names (e.g., "JD", "John", "Doe" for "John Doe") to improve fuzzy matching accuracy.
 
-1. **Instructor Ranking**:
+```bash
+node etl/generate_aliases.mjs
 
-   ```
-   "Show top 5 instructors by weighted average rating in Q1 2025 with minimum 10 sessions"
-   ```
+```
 
-2. **Trend Analysis**:
+---
 
-   ```
-   "Compare average ratings month-over-month for Q1 2025"
-   ```
+##  API Reference
 
-3. **Domain Comparison**:
-   ```
-   "Which domain had better student engagement in Q2 2025?"
-   ```
+### `POST /api/query`
 
-### Advanced Analytics
+The primary endpoint for the RAG interface.
 
-1. **Consistency Analysis**:
+* **Body:** `{ "query": "Trend of average ratings for System Design in 2024" }`
+* **Response:**
+* `data`: Array of JSON objects (the rows).
+* `sql`: The generated SQL query.
+* `summary`: AI-generated insight.
 
-   ```
-   "Find the most consistent instructor in each domain for 2025"
-   ```
 
-2. **Multi-domain Instructors**:
 
-   ```
-   "List instructors who teach multiple domains with overall rating above 4.4"
-   ```
+### `GET /api/instructors`
 
-3. **Session Type Analysis**:
-   ```
-   "Compare 'Live Class' vs 'Test Review Session' effectiveness in Q1 2025"
-   ```
+Returns a list of all instructors for the frontend autocomplete/instructions.
+
+### `GET /api/domains`
+
+Returns a list of available domains.
+
+---
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **SQL Generation Failures**:
+**1. "Generated SQL query is invalid"**
 
-   - **Symptom**: "Generated SQL query is invalid"
-   - **Solution**: Rephrase question more specifically
-   - **Debug**: Check generated SQL in browser console
+* **Cause:** The AI hallucinated a column or failed to join correctly.
+* **Fix:** Check the `ai.js` System Prompt. Ensure the Schema definition in the prompt matches your actual database schema.
 
-2. **Database Connection Issues**:
+**2. Database Connection Error**
 
-   - **Symptom**: "Database execution error"
-   - **Solution**: Verify `NEON_DATABASE_URL` configuration
-   - **Debug**: Check server logs for connection details
+* **Cause:** SSL requirements or connection limits.
+* **Fix:** Ensure `?sslmode=require` is at the end of your `NEON_DATABASE_URL`. The `db.js` file is configured to reject unauthorized connections (standard for Neon).
 
-3. **AI API Failures**:
-   - **Symptom**: "AI service temporarily unavailable"
-   - **Solution**: Wait and retry, check Groq API status
-   - **Debug**: Verify `GROQ_API_KEY` is valid
+**3. "No results found"**
 
-### Performance Optimization
+* **Cause:** Date filtering mismatch.
+* **Fix:** The system uses strict **PST** dates. Ensure your query includes the year (e.g., "in 2024").
 
-1. **Query Optimization**:
+---
 
-   - Use specific date ranges
-   - Limit result sets with HAVING clauses
-   - Utilize indexed columns (pst_year, pst_quarter, pst_month)
+### Project Structure
 
-2. **Database Indexing**:
+```text
+├── etl/
+│   ├── generate_aliases.mjs  # Alias generation for fuzzy matching
+│   └── load_excel.mjs        # Main data ingestion script
+├── public/
+│   ├── index.html            # Main UI
+│   ├── script.js             # Frontend logic (Chart.js, Fetch)
+│   └── instructions.html     # Data dictionary UI
+├── server.js                 # Express App, Fuse.js logic, Orchestrator
+├── ai.js                     # Groq API integration & Prompts
+├── db.js                     # Postgres Connection Pooling
+├── schema.sql                # Database definition
+└── README.md                 # Documentation
 
-   ```sql
-   CREATE INDEX idx_fact_session_time ON fact_session (pst_year, pst_quarter, pst_month);
-   CREATE INDEX idx_fact_session_instr ON fact_session (instructor_id);
-   ```
-
-3. **Connection Pooling**:
-   - Default pool size: 10 connections
-   - Automatic connection release
-   - SSL optimization for cloud databases
-
-### Monitoring and Logging
-
-The application includes comprehensive logging:
-
-- Request/response logging
-- SQL execution timing
-- AI API interaction logs
-- Error tracking with stack traces
-
-**Log Levels**:
-
-- `[INFO]`: Normal operations
-- `[DEBUG]`: Detailed execution flow
-- `[ERROR]`: Errors and exceptions
+```
