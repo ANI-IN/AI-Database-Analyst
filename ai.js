@@ -1,15 +1,9 @@
 // ai.js
-//const Groq = require("groq-sdk");
+const Groq = require("groq-sdk");
 const OpenAI = require("openai");
 require("dotenv").config();
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-// Model Configuration
-// Use "gpt-4o" for best performance or "gpt-4o-mini" for lower cost
-const MODEL_NAME = "gpt-4o"; // Upgraded to 70b for complex SQL logic
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
  
 
 const getExtractionPrompt = () => `
@@ -38,12 +32,12 @@ Examples:
 
 async function extractEntities(userQuery) {
   try {
-    const completion = await openai.chat.completions.create({
+    const completion = await groq.chat.completions.create({
       messages: [
         { role: "system", content: getExtractionPrompt() },
         { role: "user", content: `Query: "${userQuery}"` },
       ],
-      model: MODEL_NAME,
+      model: "openai/gpt-oss-120b",
       temperature: 0,
       response_format: { type: "json_object" } // Enforce JSON
     });
@@ -191,15 +185,27 @@ ORDER BY improvement DESC;
 `;
 
 async function getAiSql(prompt) {
-  const completion = await openai.chat.completions.create({
+  const completion = await groq.chat.completions.create({
     messages: [
       { role: "system", content: getSystemPrompt() },
       { role: "user", content: prompt },
     ],
-    model: MODEL_NAME,
+    model: "openai/gpt-oss-120b",
     temperature: 0,
   });
   return completion.choices[0]?.message?.content?.replace(/```sql|```/g, "").trim();
+}
+
+async function getAiSql(prompt) {
+    const completion = await groq.chat.completions.create({
+      messages: [
+        { role: "system", content: getSystemPrompt() },
+        { role: "user", content: prompt },
+      ],
+      model: "openai/gpt-oss-120b", // 70b is required for complex SQL logic
+      temperature: 0,
+    });
+    return completion.choices[0]?.message?.content?.replace(/```sql|```/g, "").trim();
 }
 
 // =========================================================
@@ -219,7 +225,7 @@ async function getAiSummary(userQuery, sql, data) {
     }
 
     try {
-        const completion = await openai.chat.completions.create({
+        const completion = await groq.chat.completions.create({
           messages: [
             { 
               role: "system", 
@@ -240,7 +246,7 @@ async function getAiSummary(userQuery, sql, data) {
               content: `User Question: "${userQuery}"\n\nSQL Context: ${sql}\n\nDataset:\n${datasetContext}` 
             },
           ],
-          model: MODEL_NAME, // Upgraded to 70b for smarter analysis
+          model: "openai/gpt-oss-120b", // Upgraded to 70b for smarter analysis
           temperature: 0.2, // Low temp for factual accuracy
         });
 
